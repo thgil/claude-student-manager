@@ -90,6 +90,92 @@ function seedTestData() {
     created_at: new Date().toISOString()
   });
 
+  // Random one-off lessons scattered through the past months
+
+  // Emma - extra session before her trip
+  lessons.push({
+    id: lessonId++,
+    student_id: 1,
+    date: new Date(today.getTime() - 35 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    duration_minutes: 90,
+    hourly_rate: 35,
+    notes: 'Extra session before Emma\'s Tokyo trip! Focused on practical phrases: asking for directions, ordering food, shopping. Role-played common scenarios. She feels much more confident now.',
+    is_paid: true,
+    created_at: new Date().toISOString()
+  });
+
+  // Liam - weekend intensive
+  lessons.push({
+    id: lessonId++,
+    student_id: 2,
+    date: new Date(today.getTime() - 21 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    duration_minutes: 120,
+    hourly_rate: 35,
+    notes: 'Weekend intensive session. Covered N3 grammar points: てしまう、ことがある、ようにする. Liam requested extra practice before the JLPT registration deadline. Good stamina for 2 hours!',
+    is_paid: true,
+    created_at: new Date().toISOString()
+  });
+
+  // Sophie - makeup lesson
+  lessons.push({
+    id: lessonId++,
+    student_id: 3,
+    date: new Date(today.getTime() - 45 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    duration_minutes: 45,
+    hourly_rate: 30,
+    notes: 'Makeup lesson (shorter due to scheduling). Quick review of kanji from last 2 weeks. Sophie retained most of them well. Introduced 時、分、今 for telling time.',
+    is_paid: true,
+    created_at: new Date().toISOString()
+  });
+
+  // Emma - cancelled and rescheduled
+  lessons.push({
+    id: lessonId++,
+    student_id: 1,
+    date: new Date(today.getTime() - 52 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    duration_minutes: 60,
+    hourly_rate: 35,
+    notes: 'Rescheduled from last week. Continued with katakana practice. Emma is getting faster at reading! Introduced some loanwords: テレビ、パソコン、スマホ.',
+    is_paid: true,
+    created_at: new Date().toISOString()
+  });
+
+  // Liam - conversation practice
+  lessons.push({
+    id: lessonId++,
+    student_id: 2,
+    date: new Date(today.getTime() - 8 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    duration_minutes: 60,
+    hourly_rate: 35,
+    notes: 'Conversation-only session as requested. Discussed Liam\'s work in Japanese, practiced keigo for business situations. He wants to use Japanese with his company\'s Tokyo office.',
+    is_paid: false,
+    created_at: new Date().toISOString()
+  });
+
+  // Sophie - double lesson
+  lessons.push({
+    id: lessonId++,
+    student_id: 3,
+    date: new Date(today.getTime() - 28 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    duration_minutes: 120,
+    hourly_rate: 30,
+    notes: 'Double lesson - Sophie wanted to make up for missed weeks. First hour: kanji review and new characters. Second hour: reading practice with a children\'s story about tanuki. She loved it!',
+    is_paid: true,
+    created_at: new Date().toISOString()
+  });
+
+  // Emma - trial friend
+  lessons.push({
+    id: lessonId++,
+    student_id: 1,
+    date: new Date(today.getTime() - 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    duration_minutes: 30,
+    hourly_rate: 0,
+    notes: 'Emma\'s friend Sarah joined for a free trial (first 30 min). Showed her the basics while Emma practiced. Sarah seemed interested - may become a new student!',
+    is_paid: true,
+    created_at: new Date().toISOString()
+  });
+
   // Sort lessons by date descending
   lessons.sort((a, b) => new Date(b.date) - new Date(a.date));
 
