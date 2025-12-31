@@ -53,7 +53,6 @@ function seedTestData() {
   });
 
   // Add extra recent unpaid lessons
-  const today = new Date();
 
   // Emma - lesson 2 days ago
   lessons.push({
