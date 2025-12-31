@@ -1,0 +1,427 @@
+// localStorage-based data store
+
+function seedTestData() {
+  const students = [
+    { id: 1, name: 'Emma O\'Brien', email: 'emma.obrien@email.com', phone: '087 123 4567', notes: 'Beginner level. Interested in Japanese for travel. Very enthusiastic learner.', hourly_rate: 35, created_at: '2024-09-01T10:00:00Z' },
+    { id: 2, name: 'Liam Murphy', email: 'liam.m@email.com', phone: '086 234 5678', notes: 'Intermediate level. Studying for JLPT N3. Works in tech, interested in reading manga.', hourly_rate: 35, created_at: '2024-09-15T10:00:00Z' },
+    { id: 3, name: 'Sophie Chen', email: 'sophie.chen@email.com', phone: '085 345 6789', notes: 'Advanced beginner. Heritage speaker - can understand spoken Japanese but needs help with reading/writing.', hourly_rate: 30, created_at: '2024-10-01T10:00:00Z' },
+  ];
+
+  const lessonNotes = [
+    // Emma's lessons (beginner)
+    ['Introduced hiragana あ-こ. Emma picked up the stroke order quickly. Homework: practice writing each character 10 times.', 'Reviewed あ-こ, introduced さ-と. Practiced basic greetings: こんにちは、おはようございます. She struggles a bit with さ and き - similar shapes.', 'Hiragana さ-と review. Started な-ほ. Introduced self-introduction: はじめまして、エマです。Good pronunciation!', 'Completed hiragana な-ほ. Grammar point: です/ではありません. Emma made good progress today.', 'Hiragana ま-よ. Vocabulary: numbers 1-10. She found よん/し confusing - explained the two readings.', 'Finished hiragana ら-ん. Now knows full hiragana set! Practiced reading simple words. Homework: hiragana worksheet.', 'Hiragana review and reading practice. Introduced は particle for topics. Watashi wa Emma desu.', 'Started katakana ア-コ. Discussed when katakana is used (foreign words). Practiced writing コーヒー、ケーキ.', 'Katakana サ-ト. Vocabulary: food and drinks. Practiced ordering at restaurant: ___をください。', 'Katakana ナ-ホ. Grammar: adjectives (i-adjectives). おいしい、たかい、やすい. Restaurant vocabulary expansion.', 'Katakana マ-ヨ. Practiced reading menu items. Role-play: ordering food. Emma really enjoyed this!', 'Finished katakana ラ-ン. Review session - wrote out all hiragana and katakana from memory. Great progress!'],
+    // Liam's lessons (intermediate, JLPT focused)
+    ['JLPT N3 grammar: ようにする vs ようになる. Worked through practice problems. Liam tends to mix these up.', 'Vocabulary review: 50 new N3 words. Reading comprehension practice with short article about technology.', 'Grammar: ことにする/ことになる. Compared with ようにする. Liam found the decision vs circumstance distinction helpful.', 'Kanji practice: 20 new kanji compounds. Reading: manga excerpt (One Piece). Discussed casual speech patterns.', 'JLPT N3 listening practice. Reviewed tricky patterns: んです、のに、ても. Mock test section 1.', 'Grammar: passive voice review. ラーメンが食べられた vs ラーメンを食べられた. Common mistakes discussed.', 'Causative form introduction: させる/させられる. Practice sentences about work situations.', 'Reading comprehension: news article about AI. New vocabulary: 人工知能、開発、影響. Good discussion!', 'JLPT mock test review. Focused on listening section - reviewed wrong answers. Need more practice with fast speech.', 'Grammar: ばかり、だらけ、まみれ - differences in usage. Vocabulary: weather and seasons.', 'Kanji review session - 100 N3 kanji. Liam knows about 80% well. Made flashcard list for weak ones.', 'Conditional forms review: と、ば、たら、なら. When to use each - this is tricky even for advanced learners.'],
+    // Sophie's lessons (heritage speaker, reading/writing focus)
+    ['Assessment lesson. Sophie understands spoken Japanese well but reads at beginner level. Made study plan focusing on kanji.', 'Basic kanji: 日、月、火、水、木、金、土 (days of week). She knows these from hearing but never wrote them.', 'Kanji: numbers 一-十、百、千、万. Practiced reading prices. Sophie was surprised how much she could guess from context.', 'Kanji: 人、子、女、男、学、生. Introduced radicals concept - this really helped her remember kanji structure.', 'Reading practice: children\'s book level 1. Sophie found this both easy (comprehension) and hard (reading). Good balance!', 'Kanji: 食、飲、見、聞、話、読、書. Daily verbs she uses but never saw written. Connected speaking to reading.', 'Grammar review: は vs が. Sophie uses these correctly when speaking but couldn\'t explain why. Now she understands!', 'Kanji: 大、小、高、安、新、古. Adjectives in kanji form. Reading practice with shopping dialogue.', 'Hiragana/katakana speed reading practice. Sophie is getting faster! Read short story about a cat.', 'Kanji: 行、来、帰、出、入. Direction/movement verbs. Created example sentences about her daily routine.', 'Reading: recipe in Japanese. New vocabulary: 材料、切る、混ぜる、焼く. Sophie wants to try making tamagoyaki!', 'Kanji radicals deep-dive: 氵(water)、火、木、口. How radicals give meaning hints. Sophie found this fascinating.'],
+  ];
+
+  const lessons = [];
+  let lessonId = 1;
+  const today = new Date();
+
+  // Generate lessons for each student over past 3 months
+  students.forEach((student, studentIndex) => {
+    const notes = lessonNotes[studentIndex];
+    let noteIndex = 0;
+
+    // Start 12 weeks ago
+    for (let weeksAgo = 12; weeksAgo >= 0; weeksAgo--) {
+      // 1-2 lessons per week
+      const lessonsThisWeek = weeksAgo % 3 === 0 ? 1 : 2;
+
+      for (let i = 0; i < lessonsThisWeek && noteIndex < notes.length; i++) {
+        const lessonDate = new Date(today);
+        lessonDate.setDate(lessonDate.getDate() - (weeksAgo * 7) - (i * 3));
+
+        // Lessons from last week are unpaid, older than 3 weeks are paid
+        const isPaid = weeksAgo > 3 || (weeksAgo > 0 && weeksAgo <= 3 && Math.random() > 0.3);
+
+        lessons.push({
+          id: lessonId++,
+          student_id: student.id,
+          date: lessonDate.toISOString().split('T')[0],
+          duration_minutes: 60,
+          hourly_rate: student.hourly_rate,
+          notes: notes[noteIndex],
+          is_paid: isPaid,
+          created_at: lessonDate.toISOString()
+        });
+        noteIndex++;
+      }
+    }
+  });
+
+  // Add extra recent unpaid lessons
+  const today = new Date();
+
+  // Emma - lesson 2 days ago
+  lessons.push({
+    id: lessonId++,
+    student_id: 1,
+    date: new Date(today.getTime() - 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    duration_minutes: 60,
+    hourly_rate: 35,
+    notes: 'Started basic kanji: 山、川、田、森. Emma was excited to finally learn kanji! We focused on pictographic origins to help memorization.',
+    is_paid: false,
+    created_at: new Date().toISOString()
+  });
+
+  // Liam - lesson 4 days ago
+  lessons.push({
+    id: lessonId++,
+    student_id: 2,
+    date: new Date(today.getTime() - 4 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    duration_minutes: 90,
+    hourly_rate: 35,
+    notes: 'Extended session for JLPT practice. Full mock test under timed conditions. Liam scored 68% - needs more work on reading section. Reviewed keigo patterns.',
+    is_paid: false,
+    created_at: new Date().toISOString()
+  });
+
+  // Sophie - lesson yesterday
+  lessons.push({
+    id: lessonId++,
+    student_id: 3,
+    date: new Date(today.getTime() - 1 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    duration_minutes: 60,
+    hourly_rate: 30,
+    notes: 'Kanji compounds: 電話、電車、電気. Sophie noticed the 電 pattern - great observation! Read a short dialogue about making phone calls.',
+    is_paid: false,
+    created_at: new Date().toISOString()
+  });
+
+  // Sort lessons by date descending
+  lessons.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+  return {
+    students,
+    lessons,
+    payments: [],
+    nextId: lessonId + 10
+  };
+}
+
+function getData() {
+  const data = localStorage.getItem('tutoring-data');
+  if (!data) {
+    const seeded = seedTestData();
+    saveData(seeded);
+    return seeded;
+  }
+  return JSON.parse(data);
+}
+
+function saveData(data) {
+  localStorage.setItem('tutoring-data', JSON.stringify(data));
+}
+
+function getNextId() {
+  const data = getData();
+  const id = data.nextId || 1;
+  data.nextId = id + 1;
+  saveData(data);
+  return id;
+}
+
+// Students API
+export const studentsApi = {
+  getAll: async () => {
+    const data = getData();
+    return data.students.map(s => {
+      const studentLessons = data.lessons.filter(l => l.student_id === s.id);
+      const unpaidLessons = studentLessons.filter(l => !l.is_paid);
+      return {
+        ...s,
+        lesson_count: studentLessons.length,
+        unpaid_count: unpaidLessons.length,
+        unpaid_amount: unpaidLessons.reduce((sum, l) => sum + (l.hourly_rate * l.duration_minutes / 60), 0)
+      };
+    }).sort((a, b) => a.name.localeCompare(b.name));
+  },
+
+  getOne: async (id) => {
+    const data = getData();
+    const student = data.students.find(s => s.id === parseInt(id));
+    if (!student) return null;
+
+    const lessons = data.lessons
+      .filter(l => l.student_id === parseInt(id))
+      .sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    const payments = data.payments
+      .filter(p => p.student_id === parseInt(id))
+      .sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    return { ...student, lessons, payments };
+  },
+
+  create: async ({ name, email, phone, notes, hourly_rate }) => {
+    const data = getData();
+    const student = {
+      id: getNextId(),
+      name,
+      email: email || null,
+      phone: phone || null,
+      notes: notes || null,
+      hourly_rate: hourly_rate || 30,
+      created_at: new Date().toISOString()
+    };
+    data.students.push(student);
+    saveData(data);
+    return student;
+  },
+
+  update: async (id, { name, email, phone, notes, hourly_rate }) => {
+    const data = getData();
+    const index = data.students.findIndex(s => s.id === parseInt(id));
+    if (index === -1) throw new Error('Student not found');
+
+    data.students[index] = {
+      ...data.students[index],
+      name,
+      email: email || null,
+      phone: phone || null,
+      notes: notes || null,
+      hourly_rate: hourly_rate || 30
+    };
+    saveData(data);
+    return data.students[index];
+  },
+
+  delete: async (id) => {
+    const data = getData();
+    data.students = data.students.filter(s => s.id !== parseInt(id));
+    data.lessons = data.lessons.filter(l => l.student_id !== parseInt(id));
+    data.payments = data.payments.filter(p => p.student_id !== parseInt(id));
+    saveData(data);
+  }
+};
+
+// Lessons API
+export const lessonsApi = {
+  getAll: async (params = {}) => {
+    const data = getData();
+    let lessons = data.lessons.map(l => {
+      const student = data.students.find(s => s.id === l.student_id);
+      return { ...l, student_name: student?.name || 'Unknown' };
+    });
+
+    if (params.student_id) {
+      lessons = lessons.filter(l => l.student_id === parseInt(params.student_id));
+    }
+    if (params.unpaid_only === 'true') {
+      lessons = lessons.filter(l => !l.is_paid);
+    }
+
+    return lessons.sort((a, b) => new Date(b.date) - new Date(a.date));
+  },
+
+  create: async ({ student_id, date, duration_minutes, hourly_rate, notes }) => {
+    const data = getData();
+    const student = data.students.find(s => s.id === parseInt(student_id));
+
+    const lesson = {
+      id: getNextId(),
+      student_id: parseInt(student_id),
+      date,
+      duration_minutes: duration_minutes || 60,
+      hourly_rate: hourly_rate || student?.hourly_rate || 30,
+      notes: notes || null,
+      is_paid: false,
+      created_at: new Date().toISOString()
+    };
+    data.lessons.push(lesson);
+    saveData(data);
+    return { ...lesson, student_name: student?.name };
+  },
+
+  update: async (id, { date, duration_minutes, hourly_rate, notes, is_paid }) => {
+    const data = getData();
+    const index = data.lessons.findIndex(l => l.id === parseInt(id));
+    if (index === -1) throw new Error('Lesson not found');
+
+    data.lessons[index] = {
+      ...data.lessons[index],
+      date,
+      duration_minutes,
+      hourly_rate,
+      notes: notes || null,
+      is_paid: !!is_paid
+    };
+    saveData(data);
+
+    const student = data.students.find(s => s.id === data.lessons[index].student_id);
+    return { ...data.lessons[index], student_name: student?.name };
+  },
+
+  delete: async (id) => {
+    const data = getData();
+    data.lessons = data.lessons.filter(l => l.id !== parseInt(id));
+    saveData(data);
+  },
+
+  markPaid: async (id, is_paid) => {
+    const data = getData();
+    const index = data.lessons.findIndex(l => l.id === parseInt(id));
+    if (index === -1) throw new Error('Lesson not found');
+
+    data.lessons[index].is_paid = !!is_paid;
+    saveData(data);
+
+    const student = data.students.find(s => s.id === data.lessons[index].student_id);
+    return { ...data.lessons[index], student_name: student?.name };
+  },
+
+  markMultiplePaid: async (lesson_ids) => {
+    const data = getData();
+    lesson_ids.forEach(id => {
+      const lesson = data.lessons.find(l => l.id === parseInt(id));
+      if (lesson) lesson.is_paid = true;
+    });
+    saveData(data);
+    return { updated: lesson_ids.length };
+  }
+};
+
+// Payments API
+export const paymentsApi = {
+  getAll: async (params = {}) => {
+    const data = getData();
+    let payments = data.payments.map(p => {
+      const student = data.students.find(s => s.id === p.student_id);
+      const lessons = data.lessons.filter(l => p.lesson_ids?.includes(l.id));
+      return { ...p, student_name: student?.name || 'Unknown', lessons };
+    });
+
+    if (params.student_id) {
+      payments = payments.filter(p => p.student_id === parseInt(params.student_id));
+    }
+
+    return payments.sort((a, b) => new Date(b.date) - new Date(a.date));
+  },
+
+  create: async ({ student_id, amount, date, notes, lesson_ids }) => {
+    const data = getData();
+
+    const payment = {
+      id: getNextId(),
+      student_id: parseInt(student_id),
+      amount,
+      date,
+      notes: notes || null,
+      lesson_ids: lesson_ids || [],
+      created_at: new Date().toISOString()
+    };
+    data.payments.push(payment);
+
+    // Mark lessons as paid
+    if (lesson_ids) {
+      lesson_ids.forEach(id => {
+        const lesson = data.lessons.find(l => l.id === parseInt(id));
+        if (lesson) lesson.is_paid = true;
+      });
+    }
+
+    saveData(data);
+
+    const student = data.students.find(s => s.id === parseInt(student_id));
+    const lessons = data.lessons.filter(l => lesson_ids?.includes(l.id));
+    return { ...payment, student_name: student?.name, lessons };
+  },
+
+  delete: async (id, unmark_lessons = false) => {
+    const data = getData();
+    const payment = data.payments.find(p => p.id === parseInt(id));
+
+    if (unmark_lessons && payment?.lesson_ids) {
+      payment.lesson_ids.forEach(lid => {
+        const lesson = data.lessons.find(l => l.id === lid);
+        if (lesson) lesson.is_paid = false;
+      });
+    }
+
+    data.payments = data.payments.filter(p => p.id !== parseInt(id));
+    saveData(data);
+  }
+};
+
+// Dashboard API
+export const dashboardApi = {
+  getStats: async () => {
+    const data = getData();
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+
+    const unpaidLessons = data.lessons.filter(l => !l.is_paid);
+    const monthLessons = data.lessons.filter(l => {
+      const d = new Date(l.date);
+      return d >= monthStart && d < monthEnd;
+    });
+    const paidMonthLessons = monthLessons.filter(l => l.is_paid);
+
+    return {
+      totalStudents: data.students.length,
+      totalLessons: data.lessons.length,
+      unpaidLessons: unpaidLessons.length,
+      unpaidAmount: unpaidLessons.reduce((sum, l) => sum + (l.hourly_rate * l.duration_minutes / 60), 0),
+      monthlyEarnings: paidMonthLessons.reduce((sum, l) => sum + (l.hourly_rate * l.duration_minutes / 60), 0),
+      monthlyLessons: monthLessons.length
+    };
+  },
+
+  getRecentLessons: async () => {
+    const data = getData();
+    return data.lessons
+      .map(l => {
+        const student = data.students.find(s => s.id === l.student_id);
+        return { ...l, student_name: student?.name || 'Unknown' };
+      })
+      .sort((a, b) => new Date(b.date) - new Date(a.date))
+      .slice(0, 10);
+  },
+
+  getUnpaidByStudent: async () => {
+    const data = getData();
+    const unpaidByStudent = {};
+
+    data.lessons.filter(l => !l.is_paid).forEach(l => {
+      if (!unpaidByStudent[l.student_id]) {
+        const student = data.students.find(s => s.id === l.student_id);
+        unpaidByStudent[l.student_id] = {
+          id: l.student_id,
+          name: student?.name || 'Unknown',
+          unpaid_count: 0,
+          unpaid_amount: 0
+        };
+      }
+      unpaidByStudent[l.student_id].unpaid_count++;
+      unpaidByStudent[l.student_id].unpaid_amount += l.hourly_rate * l.duration_minutes / 60;
+    });
+
+    return Object.values(unpaidByStudent).sort((a, b) => b.unpaid_amount - a.unpaid_amount);
+  },
+
+  getMonthlySummary: async () => {
+    const data = getData();
+    const byMonth = {};
+
+    data.lessons.forEach(l => {
+      const month = l.date.substring(0, 7);
+      if (!byMonth[month]) {
+        byMonth[month] = { month, lesson_count: 0, paid_amount: 0, unpaid_amount: 0, total_amount: 0 };
+      }
+      const amount = l.hourly_rate * l.duration_minutes / 60;
+      byMonth[month].lesson_count++;
+      byMonth[month].total_amount += amount;
+      if (l.is_paid) {
+        byMonth[month].paid_amount += amount;
+      } else {
+        byMonth[month].unpaid_amount += amount;
+      }
+    });
+
+    return Object.values(byMonth).sort((a, b) => b.month.localeCompare(a.month)).slice(0, 12);
+  }
+};
