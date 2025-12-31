@@ -153,8 +153,54 @@ export default function Lessons() {
         </div>
       </div>
 
-      {/* Lessons List */}
-      <div className="bg-white rounded-lg shadow overflow-hidden">
+      {/* Lessons List - Mobile Cards */}
+      <div className="md:hidden space-y-3">
+        {lessons.length === 0 ? (
+          <div className="bg-white rounded-lg shadow p-6 text-center text-gray-500">
+            No lessons found
+          </div>
+        ) : (
+          lessons.map((lesson) => (
+            <div key={lesson.id} className="bg-white rounded-lg shadow p-4">
+              <div className="flex justify-between items-start mb-2">
+                <div>
+                  <Link to={`/students/${lesson.student_id}`} className="font-medium text-blue-600">
+                    {lesson.student_name}
+                  </Link>
+                  <div className="text-sm text-gray-500">{formatDate(lesson.date)}</div>
+                </div>
+                <div className="text-right">
+                  <div className="font-medium">{formatCurrency(lesson.hourly_rate * lesson.duration_minutes / 60)}</div>
+                  <div className="text-sm text-gray-500">{lesson.duration_minutes} min</div>
+                </div>
+              </div>
+              {lesson.notes && (
+                <div className="text-sm text-gray-600 bg-gray-50 rounded p-2 mb-2 line-clamp-2">
+                  {lesson.notes}
+                </div>
+              )}
+              <div className="flex justify-between items-center">
+                <button
+                  onClick={() => togglePaid(lesson)}
+                  className={`px-3 py-1 rounded text-sm font-medium ${
+                    lesson.is_paid
+                      ? 'bg-green-100 text-green-700'
+                      : 'bg-red-100 text-red-700'
+                  }`}
+                >
+                  {lesson.is_paid ? 'Paid' : 'Unpaid'}
+                </button>
+                <button onClick={() => deleteLesson(lesson.id)} className="text-red-500 text-sm">
+                  Delete
+                </button>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* Lessons List - Desktop Table */}
+      <div className="hidden md:block bg-white rounded-lg shadow overflow-hidden">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>

@@ -46,30 +46,30 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-8">
-      <h2 className="text-2xl font-bold text-gray-900">Dashboard</h2>
+      <h2 className="text-xl md:text-2xl font-bold text-gray-900">Dashboard</h2>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="text-sm text-gray-500">Total Students</div>
-          <div className="text-3xl font-bold text-gray-900">{stats?.totalStudents || 0}</div>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+        <div className="bg-white rounded-lg shadow p-4 md:p-6">
+          <div className="text-xs md:text-sm text-gray-500">Students</div>
+          <div className="text-2xl md:text-3xl font-bold text-gray-900">{stats?.totalStudents || 0}</div>
         </div>
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="text-sm text-gray-500">This Month's Lessons</div>
-          <div className="text-3xl font-bold text-gray-900">{stats?.monthlyLessons || 0}</div>
+        <div className="bg-white rounded-lg shadow p-4 md:p-6">
+          <div className="text-xs md:text-sm text-gray-500">This Month</div>
+          <div className="text-2xl md:text-3xl font-bold text-gray-900">{stats?.monthlyLessons || 0} <span className="text-base font-normal text-gray-500">lessons</span></div>
         </div>
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="text-sm text-gray-500">This Month's Earnings</div>
-          <div className="text-3xl font-bold text-green-600">{formatCurrency(stats?.monthlyEarnings || 0)}</div>
+        <div className="bg-white rounded-lg shadow p-4 md:p-6">
+          <div className="text-xs md:text-sm text-gray-500">Earnings</div>
+          <div className="text-xl md:text-3xl font-bold text-green-600">{formatCurrency(stats?.monthlyEarnings || 0)}</div>
         </div>
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="text-sm text-gray-500">Outstanding Balance</div>
-          <div className="text-3xl font-bold text-red-600">{formatCurrency(stats?.unpaidAmount || 0)}</div>
-          <div className="text-sm text-gray-400">{stats?.unpaidLessons || 0} unpaid lessons</div>
+        <div className="bg-white rounded-lg shadow p-4 md:p-6">
+          <div className="text-xs md:text-sm text-gray-500">Outstanding</div>
+          <div className="text-xl md:text-3xl font-bold text-red-600">{formatCurrency(stats?.unpaidAmount || 0)}</div>
+          <div className="text-xs text-gray-400">{stats?.unpaidLessons || 0} unpaid</div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-8">
         {/* Recent Lessons */}
         <div className="bg-white rounded-lg shadow">
           <div className="px-6 py-4 border-b">

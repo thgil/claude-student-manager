@@ -97,8 +97,41 @@ export default function Students() {
         </button>
       </div>
 
-      {/* Students List */}
-      <div className="bg-white rounded-lg shadow overflow-hidden">
+      {/* Students List - Mobile Cards */}
+      <div className="md:hidden space-y-3">
+        {students.length === 0 ? (
+          <div className="bg-white rounded-lg shadow p-6 text-center text-gray-500">
+            No students yet. Add your first student!
+          </div>
+        ) : (
+          students.map((student) => (
+            <div key={student.id} className="bg-white rounded-lg shadow p-4">
+              <div className="flex justify-between items-start mb-2">
+                <Link to={`/students/${student.id}`} className="font-medium text-blue-600 text-lg">
+                  {student.name}
+                </Link>
+                <div className="flex space-x-3">
+                  <button onClick={() => openEditForm(student)} className="text-gray-500">Edit</button>
+                  <button onClick={() => handleDelete(student.id)} className="text-red-500">Delete</button>
+                </div>
+              </div>
+              <div className="text-sm text-gray-500 mb-2">
+                {formatCurrency(student.hourly_rate)}/hr · {student.lesson_count} lessons
+              </div>
+              {student.unpaid_count > 0 ? (
+                <div className="text-red-600 text-sm font-medium">
+                  {student.unpaid_count} unpaid ({formatCurrency(student.unpaid_amount)})
+                </div>
+              ) : (
+                <div className="text-green-600 text-sm">All paid</div>
+              )}
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* Students List - Desktop Table */}
+      <div className="hidden md:block bg-white rounded-lg shadow overflow-hidden">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
