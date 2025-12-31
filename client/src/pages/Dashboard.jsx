@@ -193,6 +193,21 @@ export default function Dashboard() {
           )}
         </div>
       </div>
+
+      {/* Reset Button */}
+      <div className="text-center pt-4">
+        <button
+          onClick={() => {
+            if (confirm('Reset all data? This will clear all students, lessons, and schedules and reload with sample data.')) {
+              localStorage.removeItem('tutoring-data');
+              window.location.reload();
+            }
+          }}
+          className="text-xs text-gray-400 hover:text-red-500"
+        >
+          Reset to sample data
+        </button>
+      </div>
     </div>
   )
 }
