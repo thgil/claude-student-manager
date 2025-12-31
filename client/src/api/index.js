@@ -179,10 +179,19 @@ function seedTestData() {
   // Sort lessons by date descending
   lessons.sort((a, b) => new Date(b.date) - new Date(a.date));
 
+  // Sample recurring schedules
+  const schedules = [
+    { id: lessonId++, student_id: 1, is_recurring: true, day_of_week: 'tuesday', date: null, time: '16:00', duration_minutes: 60, notes: 'Weekly lesson - hiragana/katakana practice', created_at: new Date().toISOString() },
+    { id: lessonId++, student_id: 2, is_recurring: true, day_of_week: 'wednesday', date: null, time: '18:00', duration_minutes: 60, notes: 'JLPT N3 prep', created_at: new Date().toISOString() },
+    { id: lessonId++, student_id: 2, is_recurring: true, day_of_week: 'saturday', date: null, time: '10:00', duration_minutes: 90, notes: 'Weekend intensive - reading practice', created_at: new Date().toISOString() },
+    { id: lessonId++, student_id: 3, is_recurring: true, day_of_week: 'thursday', date: null, time: '17:30', duration_minutes: 60, notes: 'Kanji and reading focus', created_at: new Date().toISOString() },
+  ];
+
   return {
     students,
     lessons,
     payments: [],
+    schedules,
     nextId: lessonId + 10
   };
 }
@@ -508,5 +517,166 @@ export const dashboardApi = {
     });
 
     return Object.values(byMonth).sort((a, b) => b.month.localeCompare(a.month)).slice(0, 12);
+  },
+
+  getUpcomingLessons: async () => {
+    const data = getData();
+    const upcoming = await schedulesApi.getUpcoming(7);
+    return upcoming;
+  }
+};
+
+// Schedules API
+export const schedulesApi = {
+  getAll: async () => {
+    const data = getData();
+    if (!data.schedules) {
+      data.schedules = [];
+      saveData(data);
+    }
+    return data.schedules.map(s => {
+      const student = data.students.find(st => st.id === s.student_id);
+      return { ...s, student_name: student?.name || 'Unknown' };
+    });
+  },
+
+  getUpcoming: async (days = 14) => {
+    const data = getData();
+    if (!data.schedules) {
+      data.schedules = [];
+      saveData(data);
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const endDate = new Date(today);
+    endDate.setDate(endDate.getDate() + days);
+
+    const upcoming = [];
+    const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+
+    // Generate occurrences for each schedule
+    data.schedules.forEach(schedule => {
+      const student = data.students.find(s => s.id === schedule.student_id);
+
+      if (schedule.is_recurring) {
+        // Generate all occurrences in the date range
+        let checkDate = new Date(today);
+        while (checkDate <= endDate) {
+          if (dayNames[checkDate.getDay()] === schedule.day_of_week) {
+            upcoming.push({
+              ...schedule,
+              student_name: student?.name || 'Unknown',
+              date: checkDate.toISOString().split('T')[0],
+              is_recurring_instance: true
+            });
+          }
+          checkDate.setDate(checkDate.getDate() + 1);
+        }
+      } else {
+        // One-off scheduled lesson
+        const scheduleDate = new Date(schedule.date);
+        if (scheduleDate >= today && scheduleDate <= endDate) {
+          upcoming.push({
+            ...schedule,
+            student_name: student?.name || 'Unknown',
+            is_recurring_instance: false
+          });
+        }
+      }
+    });
+
+    // Sort by date and time
+    upcoming.sort((a, b) => {
+      const dateCompare = a.date.localeCompare(b.date);
+      if (dateCompare !== 0) return dateCompare;
+      return a.time.localeCompare(b.time);
+    });
+
+    return upcoming;
+  },
+
+  create: async ({ student_id, is_recurring, day_of_week, date, time, duration_minutes, notes }) => {
+    const data = getData();
+    if (!data.schedules) data.schedules = [];
+
+    const schedule = {
+      id: getNextId(),
+      student_id: parseInt(student_id),
+      is_recurring: !!is_recurring,
+      day_of_week: is_recurring ? day_of_week : null,
+      date: is_recurring ? null : date,
+      time,
+      duration_minutes: duration_minutes || 60,
+      notes: notes || null,
+      created_at: new Date().toISOString()
+    };
+
+    data.schedules.push(schedule);
+    saveData(data);
+
+    const student = data.students.find(s => s.id === parseInt(student_id));
+    return { ...schedule, student_name: student?.name };
+  },
+
+  update: async (id, { student_id, is_recurring, day_of_week, date, time, duration_minutes, notes }) => {
+    const data = getData();
+    if (!data.schedules) data.schedules = [];
+
+    const index = data.schedules.findIndex(s => s.id === parseInt(id));
+    if (index === -1) throw new Error('Schedule not found');
+
+    data.schedules[index] = {
+      ...data.schedules[index],
+      student_id: parseInt(student_id),
+      is_recurring: !!is_recurring,
+      day_of_week: is_recurring ? day_of_week : null,
+      date: is_recurring ? null : date,
+      time,
+      duration_minutes: duration_minutes || 60,
+      notes: notes || null
+    };
+
+    saveData(data);
+    const student = data.students.find(s => s.id === parseInt(student_id));
+    return { ...data.schedules[index], student_name: student?.name };
+  },
+
+  delete: async (id) => {
+    const data = getData();
+    if (!data.schedules) data.schedules = [];
+    data.schedules = data.schedules.filter(s => s.id !== parseInt(id));
+    saveData(data);
+  },
+
+  // Convert a scheduled lesson to an actual lesson record
+  completeLesson: async (scheduleId, date, notes) => {
+    const data = getData();
+    const schedule = data.schedules?.find(s => s.id === parseInt(scheduleId));
+    if (!schedule) throw new Error('Schedule not found');
+
+    const student = data.students.find(s => s.id === schedule.student_id);
+
+    // Create the lesson
+    const lesson = {
+      id: getNextId(),
+      student_id: schedule.student_id,
+      date: date,
+      duration_minutes: schedule.duration_minutes,
+      hourly_rate: student?.hourly_rate || 30,
+      notes: notes || schedule.notes || null,
+      is_paid: false,
+      created_at: new Date().toISOString()
+    };
+
+    data.lessons.push(lesson);
+
+    // If it's a one-off, remove the schedule
+    if (!schedule.is_recurring) {
+      data.schedules = data.schedules.filter(s => s.id !== parseInt(scheduleId));
+    }
+
+    saveData(data);
+    return { ...lesson, student_name: student?.name };
   }
 };

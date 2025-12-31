@@ -3,6 +3,7 @@ import Dashboard from './pages/Dashboard'
 import Students from './pages/Students'
 import StudentDetail from './pages/StudentDetail'
 import Lessons from './pages/Lessons'
+import Schedule from './pages/Schedule'
 import Billing from './pages/Billing'
 
 function App() {
@@ -46,6 +47,16 @@ function App() {
                   Lessons
                 </NavLink>
                 <NavLink
+                  to="/schedule"
+                  className={({ isActive }) =>
+                    `px-3 py-2 rounded-md text-sm font-medium ${
+                      isActive ? 'bg-gray-100 text-gray-900' : 'text-gray-600 hover:text-gray-900'
+                    }`
+                  }
+                >
+                  Schedule
+                </NavLink>
+                <NavLink
                   to="/billing"
                   className={({ isActive }) =>
                     `px-3 py-2 rounded-md text-sm font-medium ${
@@ -72,6 +83,7 @@ function App() {
           <Route path="/students" element={<Students />} />
           <Route path="/students/:id" element={<StudentDetail />} />
           <Route path="/lessons" element={<Lessons />} />
+          <Route path="/schedule" element={<Schedule />} />
           <Route path="/billing" element={<Billing />} />
         </Routes>
       </main>
@@ -82,7 +94,7 @@ function App() {
           <NavLink
             to="/"
             className={({ isActive }) =>
-              `flex flex-col items-center px-3 py-1 text-xs ${
+              `flex flex-col items-center px-2 py-1 text-xs ${
                 isActive ? 'text-blue-600' : 'text-gray-500'
               }`
             }
@@ -95,7 +107,7 @@ function App() {
           <NavLink
             to="/students"
             className={({ isActive }) =>
-              `flex flex-col items-center px-3 py-1 text-xs ${
+              `flex flex-col items-center px-2 py-1 text-xs ${
                 isActive ? 'text-blue-600' : 'text-gray-500'
               }`
             }
@@ -108,7 +120,7 @@ function App() {
           <NavLink
             to="/lessons"
             className={({ isActive }) =>
-              `flex flex-col items-center px-3 py-1 text-xs ${
+              `flex flex-col items-center px-2 py-1 text-xs ${
                 isActive ? 'text-blue-600' : 'text-gray-500'
               }`
             }
@@ -119,9 +131,22 @@ function App() {
             Lessons
           </NavLink>
           <NavLink
+            to="/schedule"
+            className={({ isActive }) =>
+              `flex flex-col items-center px-2 py-1 text-xs ${
+                isActive ? 'text-blue-600' : 'text-gray-500'
+              }`
+            }
+          >
+            <svg className="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            Schedule
+          </NavLink>
+          <NavLink
             to="/billing"
             className={({ isActive }) =>
-              `flex flex-col items-center px-3 py-1 text-xs ${
+              `flex flex-col items-center px-2 py-1 text-xs ${
                 isActive ? 'text-blue-600' : 'text-gray-500'
               }`
             }

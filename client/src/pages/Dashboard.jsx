@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { dashboardApi } from '../api'
+import { dashboardApi, schedulesApi } from '../api'
 
 function formatCurrency(amount) {
   return new Intl.NumberFormat('en-IE', { style: 'currency', currency: 'EUR' }).format(amount)
@@ -14,23 +14,48 @@ function formatDate(dateStr) {
   })
 }
 
+function formatTime(time) {
+  if (!time) return ''
+  const [hours, minutes] = time.split(':')
+  const h = parseInt(hours)
+  const ampm = h >= 12 ? 'PM' : 'AM'
+  const hour12 = h % 12 || 12
+  return `${hour12}:${minutes} ${ampm}`
+}
+
+function formatUpcomingDate(dateStr) {
+  const date = new Date(dateStr + 'T00:00:00')
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const tomorrow = new Date(today)
+  tomorrow.setDate(tomorrow.getDate() + 1)
+
+  if (date.getTime() === today.getTime()) return 'Today'
+  if (date.getTime() === tomorrow.getTime()) return 'Tomorrow'
+
+  return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+}
+
 export default function Dashboard() {
   const [stats, setStats] = useState(null)
   const [recentLessons, setRecentLessons] = useState([])
   const [unpaidByStudent, setUnpaidByStudent] = useState([])
+  const [upcomingLessons, setUpcomingLessons] = useState([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     async function load() {
       try {
-        const [statsData, lessonsData, unpaidData] = await Promise.all([
+        const [statsData, lessonsData, unpaidData, upcomingData] = await Promise.all([
           dashboardApi.getStats(),
           dashboardApi.getRecentLessons(),
           dashboardApi.getUnpaidByStudent(),
+          schedulesApi.getUpcoming(7),
         ])
         setStats(statsData)
         setRecentLessons(lessonsData)
         setUnpaidByStudent(unpaidData)
+        setUpcomingLessons(upcomingData)
       } catch (err) {
         console.error('Failed to load dashboard:', err)
       } finally {
@@ -68,6 +93,35 @@ export default function Dashboard() {
           <div className="text-xs text-gray-400">{stats?.unpaidLessons || 0} unpaid</div>
         </div>
       </div>
+
+      {/* Upcoming Lessons */}
+      {upcomingLessons.length > 0 && (
+        <div className="bg-white rounded-lg shadow">
+          <div className="px-4 md:px-6 py-4 border-b flex items-center justify-between">
+            <h3 className="text-lg font-semibold">Upcoming Lessons</h3>
+            <Link to="/schedule" className="text-blue-600 hover:text-blue-800 text-sm">
+              View schedule →
+            </Link>
+          </div>
+          <div className="divide-y">
+            {upcomingLessons.slice(0, 5).map((lesson, idx) => (
+              <div key={`${lesson.id}-${lesson.date}-${idx}`} className="px-4 md:px-6 py-3 flex items-center justify-between">
+                <div>
+                  <Link to={`/students/${lesson.student_id}`} className="font-medium text-blue-600 hover:text-blue-800">
+                    {lesson.student_name}
+                  </Link>
+                  <div className="text-sm text-gray-500">
+                    {formatUpcomingDate(lesson.date)} at {formatTime(lesson.time)}
+                  </div>
+                </div>
+                <div className="text-sm text-gray-500">
+                  {lesson.duration_minutes} min
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-8">
         {/* Recent Lessons */}
