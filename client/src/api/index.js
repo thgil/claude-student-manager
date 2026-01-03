@@ -187,11 +187,26 @@ function seedTestData() {
     { id: lessonId++, student_id: 3, is_recurring: true, days_of_week: ['monday', 'wednesday', 'friday'], date: null, time: '17:30', duration_minutes: 60, frequency: 'weekly', interval: 1, end_date: null, exceptions: [], notes: 'Intensive schedule - 3x per week', created_at: new Date().toISOString() },
   ];
 
+  // Sample lesson materials and resources
+  const materials = [
+    { id: lessonId++, title: 'Hiragana Chart', type: 'worksheet', url: 'https://www.tofugu.com/japanese/hiragana/', description: 'Complete hiragana chart with stroke order. Great for beginners.', student_id: null, created_at: new Date().toISOString() },
+    { id: lessonId++, title: 'Katakana Practice Sheets', type: 'worksheet', url: 'https://www.tofugu.com/japanese/katakana/', description: 'Printable katakana writing practice worksheets.', student_id: null, created_at: new Date().toISOString() },
+    { id: lessonId++, title: 'JLPT N3 Grammar List', type: 'document', url: 'https://jlptsensei.com/jlpt-n3-grammar-list/', description: 'Comprehensive N3 grammar points with examples. Essential for Liam.', student_id: 2, created_at: new Date().toISOString() },
+    { id: lessonId++, title: 'Japanese Pod 101 - Beginner', type: 'video', url: 'https://www.japanesepod101.com/', description: 'Video lessons for absolute beginners. Good supplement for Emma.', student_id: 1, created_at: new Date().toISOString() },
+    { id: lessonId++, title: 'Kanji Study App', type: 'link', url: 'https://www.wanikani.com/', description: 'Spaced repetition system for learning kanji. Recommended for all students.', student_id: null, created_at: new Date().toISOString() },
+    { id: lessonId++, title: 'NHK World Easy Japanese', type: 'video', url: 'https://www.nhk.or.jp/lesson/english/', description: 'Free video lessons from NHK. Great listening practice.', student_id: null, created_at: new Date().toISOString() },
+    { id: lessonId++, title: 'Genki Textbook Exercises', type: 'worksheet', url: '', description: 'Supplementary exercises for Genki I textbook chapters 1-12.', student_id: 1, created_at: new Date().toISOString() },
+    { id: lessonId++, title: 'Reading Practice - Tanuki Story', type: 'document', url: '', description: 'Simple folktale about tanuki. Good for Sophie\'s reading practice.', student_id: 3, created_at: new Date().toISOString() },
+    { id: lessonId++, title: 'JLPT N3 Vocabulary Anki Deck', type: 'link', url: 'https://ankiweb.net/shared/decks/jlpt%20n3', description: 'Flashcard deck with all N3 vocabulary. For Liam\'s exam prep.', student_id: 2, created_at: new Date().toISOString() },
+    { id: lessonId++, title: 'Japanese Cooking Vocabulary', type: 'worksheet', url: '', description: 'Vocabulary list for cooking terms. Used with Sophie for recipe reading.', student_id: 3, created_at: new Date().toISOString() },
+  ];
+
   return {
     students,
     lessons,
     payments: [],
     schedules,
+    materials,
     nextId: lessonId + 10
   };
 }
@@ -782,5 +797,98 @@ export const schedulesApi = {
 
     saveData(data);
     return { ...lesson, student_name: student?.name };
+  }
+};
+
+// Materials API
+export const materialsApi = {
+  getAll: async (params = {}) => {
+    const data = getData();
+    if (!data.materials) {
+      data.materials = [];
+      saveData(data);
+    }
+
+    let materials = data.materials.map(m => {
+      const student = m.student_id ? data.students.find(s => s.id === m.student_id) : null;
+      return { ...m, student_name: student?.name || null };
+    });
+
+    // Filter by type
+    if (params.type) {
+      materials = materials.filter(m => m.type === params.type);
+    }
+
+    // Filter by student
+    if (params.student_id) {
+      const studentId = parseInt(params.student_id);
+      materials = materials.filter(m => m.student_id === studentId || m.student_id === null);
+    }
+
+    // Filter shared only (no student assigned)
+    if (params.shared_only === 'true') {
+      materials = materials.filter(m => m.student_id === null);
+    }
+
+    return materials.sort((a, b) => a.title.localeCompare(b.title));
+  },
+
+  getOne: async (id) => {
+    const data = getData();
+    const material = data.materials?.find(m => m.id === parseInt(id));
+    if (!material) return null;
+
+    const student = material.student_id ? data.students.find(s => s.id === material.student_id) : null;
+    return { ...material, student_name: student?.name || null };
+  },
+
+  create: async ({ title, type, url, description, student_id }) => {
+    const data = getData();
+    if (!data.materials) data.materials = [];
+
+    const material = {
+      id: getNextId(),
+      title,
+      type: type || 'link',
+      url: url || '',
+      description: description || '',
+      student_id: student_id ? parseInt(student_id) : null,
+      created_at: new Date().toISOString()
+    };
+
+    data.materials.push(material);
+    saveData(data);
+
+    const student = material.student_id ? data.students.find(s => s.id === material.student_id) : null;
+    return { ...material, student_name: student?.name || null };
+  },
+
+  update: async (id, { title, type, url, description, student_id }) => {
+    const data = getData();
+    if (!data.materials) data.materials = [];
+
+    const index = data.materials.findIndex(m => m.id === parseInt(id));
+    if (index === -1) throw new Error('Material not found');
+
+    data.materials[index] = {
+      ...data.materials[index],
+      title,
+      type: type || 'link',
+      url: url || '',
+      description: description || '',
+      student_id: student_id ? parseInt(student_id) : null
+    };
+
+    saveData(data);
+
+    const student = data.materials[index].student_id ? data.students.find(s => s.id === data.materials[index].student_id) : null;
+    return { ...data.materials[index], student_name: student?.name || null };
+  },
+
+  delete: async (id) => {
+    const data = getData();
+    if (!data.materials) data.materials = [];
+    data.materials = data.materials.filter(m => m.id !== parseInt(id));
+    saveData(data);
   }
 };

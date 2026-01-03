@@ -5,6 +5,7 @@ import StudentDetail from './pages/StudentDetail'
 import Lessons from './pages/Lessons'
 import Schedule from './pages/Schedule'
 import Billing from './pages/Billing'
+import Materials from './pages/Materials'
 import Whiteboard from './pages/Whiteboard'
 
 function App() {
@@ -68,6 +69,16 @@ function App() {
                   Billing
                 </NavLink>
                 <NavLink
+                  to="/materials"
+                  className={({ isActive }) =>
+                    `px-3 py-2 rounded-md text-sm font-medium ${
+                      isActive ? 'bg-gray-100 text-gray-900' : 'text-gray-600 hover:text-gray-900'
+                    }`
+                  }
+                >
+                  Materials
+                </NavLink>
+                <NavLink
                   to="/whiteboard"
                   className={({ isActive }) =>
                     `px-3 py-2 rounded-md text-sm font-medium ${
@@ -96,6 +107,7 @@ function App() {
           <Route path="/lessons" element={<Lessons />} />
           <Route path="/schedule" element={<Schedule />} />
           <Route path="/billing" element={<Billing />} />
+          <Route path="/materials" element={<Materials />} />
           <Route path="/whiteboard" element={<Whiteboard />} />
         </Routes>
       </main>
@@ -167,6 +179,19 @@ function App() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
             Billing
+          </NavLink>
+          <NavLink
+            to="/materials"
+            className={({ isActive }) =>
+              `flex flex-col items-center px-2 py-1 text-xs ${
+                isActive ? 'text-blue-600' : 'text-gray-500'
+              }`
+            }
+          >
+            <svg className="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+            </svg>
+            Materials
           </NavLink>
           <NavLink
             to="/whiteboard"
