@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { studentsApi } from '../api'
-
-function formatCurrency(amount) {
-  return new Intl.NumberFormat('en-IE', { style: 'currency', currency: 'EUR' }).format(amount)
-}
+import { formatCurrency } from '../utils/formatters'
+import { LESSON_DEFAULTS } from '../constants'
+import Modal from '../components/Modal'
+import FormField from '../components/FormField'
+import EmptyState from '../components/EmptyState'
+import ConfirmDialog from '../components/ConfirmDialog'
 
 export default function Students() {
   const [students, setStudents] = useState([])
@@ -16,8 +18,11 @@ export default function Students() {
     email: '',
     phone: '',
     notes: '',
-    hourly_rate: 30,
+    hourly_rate: LESSON_DEFAULTS.HOURLY_RATE,
   })
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [deleteConfirm, setDeleteConfirm] = useState(null)
+  const [error, setError] = useState(null)
 
   useEffect(() => {
     loadStudents()
@@ -29,6 +34,7 @@ export default function Students() {
       setStudents(data)
     } catch (err) {
       console.error('Failed to load students:', err)
+      setError('Failed to load students')
     } finally {
       setLoading(false)
     }
@@ -36,7 +42,7 @@ export default function Students() {
 
   function openNewForm() {
     setEditingStudent(null)
-    setFormData({ name: '', email: '', phone: '', notes: '', hourly_rate: 3000 })
+    setFormData({ name: '', email: '', phone: '', notes: '', hourly_rate: LESSON_DEFAULTS.HOURLY_RATE })
     setShowForm(true)
   }
 
@@ -54,6 +60,8 @@ export default function Students() {
 
   async function handleSubmit(e) {
     e.preventDefault()
+    setIsSubmitting(true)
+    setError(null)
     try {
       if (editingStudent) {
         await studentsApi.update(editingStudent.id, formData)
@@ -64,20 +72,24 @@ export default function Students() {
       loadStudents()
     } catch (err) {
       console.error('Failed to save student:', err)
-      alert('Failed to save student')
+      setError('Failed to save student. Please try again.')
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
-  async function handleDelete(id) {
-    if (!confirm('Are you sure you want to delete this student? This will also delete all their lessons and payments.')) {
-      return
-    }
+  async function handleDelete() {
+    if (!deleteConfirm) return
+    setIsSubmitting(true)
     try {
-      await studentsApi.delete(id)
+      await studentsApi.delete(deleteConfirm.id)
+      setDeleteConfirm(null)
       loadStudents()
     } catch (err) {
       console.error('Failed to delete student:', err)
-      alert('Failed to delete student')
+      setError('Failed to delete student')
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
@@ -97,11 +109,21 @@ export default function Students() {
         </button>
       </div>
 
+      {error && (
+        <div className="bg-red-50 text-red-600 px-4 py-3 rounded-md">
+          {error}
+        </div>
+      )}
+
       {/* Students List - Mobile Cards */}
       <div className="md:hidden space-y-3">
         {students.length === 0 ? (
-          <div className="bg-white rounded-lg shadow p-6 text-center text-gray-500">
-            No students yet. Add your first student!
+          <div className="bg-white rounded-lg shadow">
+            <EmptyState
+              message="No students yet."
+              action="Add your first student"
+              onAction={openNewForm}
+            />
           </div>
         ) : (
           students.map((student) => (
@@ -112,7 +134,7 @@ export default function Students() {
                 </Link>
                 <div className="flex space-x-3">
                   <button onClick={() => openEditForm(student)} className="text-gray-500">Edit</button>
-                  <button onClick={() => handleDelete(student.id)} className="text-red-500">Delete</button>
+                  <button onClick={() => setDeleteConfirm(student)} className="text-red-500">Delete</button>
                 </div>
               </div>
               <div className="text-sm text-gray-500 mb-2">
@@ -146,8 +168,12 @@ export default function Students() {
           <tbody className="divide-y divide-gray-200">
             {students.length === 0 ? (
               <tr>
-                <td colSpan="6" className="px-6 py-8 text-center text-gray-500">
-                  No students yet. Add your first student!
+                <td colSpan="6">
+                  <EmptyState
+                    message="No students yet."
+                    action="Add your first student"
+                    onAction={openNewForm}
+                  />
                 </td>
               </tr>
             ) : (
@@ -185,7 +211,7 @@ export default function Students() {
                       Edit
                     </button>
                     <button
-                      onClick={() => handleDelete(student.id)}
+                      onClick={() => setDeleteConfirm(student)}
                       className="text-red-600 hover:text-red-800"
                     >
                       Delete
@@ -199,80 +225,76 @@ export default function Students() {
       </div>
 
       {/* Add/Edit Form Modal */}
-      {showForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50" onClick={() => setShowForm(false)}>
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6" onClick={e => e.stopPropagation()}>
-            <h3 className="text-lg font-semibold mb-4">
-              {editingStudent ? 'Edit Student' : 'Add New Student'}
-            </h3>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Name *</label>
-                <input
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full border rounded-md px-3 py-2"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                <input
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  className="w-full border rounded-md px-3 py-2"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
-                <input
-                  type="tel"
-                  value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  className="w-full border rounded-md px-3 py-2"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Hourly Rate (EUR)</label>
-                <input
-                  type="number"
-                  value={formData.hourly_rate}
-                  onChange={(e) => setFormData({ ...formData, hourly_rate: parseInt(e.target.value) || 0 })}
-                  className="w-full border rounded-md px-3 py-2"
-                  min="0"
-                  step="100"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
-                <textarea
-                  value={formData.notes}
-                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                  className="w-full border rounded-md px-3 py-2"
-                  rows="3"
-                />
-              </div>
-              <div className="flex justify-end space-x-3 pt-4">
-                <button
-                  type="button"
-                  onClick={() => setShowForm(false)}
-                  className="px-4 py-2 text-gray-600 hover:text-gray-800"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
-                >
-                  {editingStudent ? 'Save Changes' : 'Add Student'}
-                </button>
-              </div>
-            </form>
+      <Modal
+        isOpen={showForm}
+        onClose={() => setShowForm(false)}
+        title={editingStudent ? 'Edit Student' : 'Add New Student'}
+      >
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <FormField
+            label="Name"
+            value={formData.name}
+            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+            required
+          />
+          <FormField
+            label="Email"
+            type="email"
+            value={formData.email}
+            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+          />
+          <FormField
+            label="Phone"
+            type="tel"
+            value={formData.phone}
+            onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+          />
+          <FormField
+            label="Hourly Rate (EUR)"
+            type="number"
+            value={formData.hourly_rate}
+            onChange={(e) => setFormData({ ...formData, hourly_rate: parseInt(e.target.value) || 0 })}
+            min="0"
+            step={LESSON_DEFAULTS.RATE_STEP}
+          />
+          <FormField
+            label="Notes"
+            type="textarea"
+            value={formData.notes}
+            onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+            rows="3"
+          />
+          <div className="flex justify-end space-x-3 pt-4">
+            <button
+              type="button"
+              onClick={() => setShowForm(false)}
+              className="px-4 py-2 text-gray-600 hover:text-gray-800"
+              disabled={isSubmitting}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:opacity-50"
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? 'Saving...' : (editingStudent ? 'Save Changes' : 'Add Student')}
+            </button>
           </div>
-        </div>
-      )}
+        </form>
+      </Modal>
+
+      {/* Delete Confirmation */}
+      <ConfirmDialog
+        isOpen={!!deleteConfirm}
+        onClose={() => setDeleteConfirm(null)}
+        onConfirm={handleDelete}
+        title="Delete Student"
+        message={`Are you sure you want to delete ${deleteConfirm?.name}? This will also delete all their lessons and payments.`}
+        confirmText="Delete"
+        variant="danger"
+        isLoading={isSubmitting}
+      />
     </div>
   )
 }

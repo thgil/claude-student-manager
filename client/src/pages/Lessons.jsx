@@ -1,19 +1,12 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { lessonsApi, studentsApi } from '../api'
-
-function formatCurrency(amount) {
-  return new Intl.NumberFormat('en-IE', { style: 'currency', currency: 'EUR' }).format(amount)
-}
-
-function formatDate(dateStr) {
-  return new Date(dateStr).toLocaleDateString('en-US', {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric'
-  })
-}
+import { formatCurrency, formatDate, calculateLessonAmount } from '../utils/formatters'
+import { LESSON_DEFAULTS } from '../constants'
+import Modal from '../components/Modal'
+import FormField from '../components/FormField'
+import EmptyState from '../components/EmptyState'
+import ConfirmDialog from '../components/ConfirmDialog'
 
 export default function Lessons() {
   const [lessons, setLessons] = useState([])
@@ -24,10 +17,13 @@ export default function Lessons() {
   const [formData, setFormData] = useState({
     student_id: '',
     date: new Date().toISOString().split('T')[0],
-    duration_minutes: 60,
-    hourly_rate: 30,
+    duration_minutes: LESSON_DEFAULTS.DURATION_MINUTES,
+    hourly_rate: LESSON_DEFAULTS.HOURLY_RATE,
     notes: '',
   })
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [deleteConfirm, setDeleteConfirm] = useState(null)
+  const [error, setError] = useState(null)
 
   useEffect(() => {
     loadData()
@@ -46,6 +42,7 @@ export default function Lessons() {
       setStudents(studentsData)
     } catch (err) {
       console.error('Failed to load data:', err)
+      setError('Failed to load lessons')
     } finally {
       setLoading(false)
     }
@@ -55,8 +52,8 @@ export default function Lessons() {
     setFormData({
       student_id: filter.student_id || '',
       date: new Date().toISOString().split('T')[0],
-      duration_minutes: 60,
-      hourly_rate: 30,
+      duration_minutes: LESSON_DEFAULTS.DURATION_MINUTES,
+      hourly_rate: LESSON_DEFAULTS.HOURLY_RATE,
       notes: '',
     })
     setShowForm(true)
@@ -65,9 +62,11 @@ export default function Lessons() {
   async function handleSubmit(e) {
     e.preventDefault()
     if (!formData.student_id) {
-      alert('Please select a student')
+      setError('Please select a student')
       return
     }
+    setIsSubmitting(true)
+    setError(null)
     try {
       await lessonsApi.create({
         ...formData,
@@ -77,7 +76,9 @@ export default function Lessons() {
       loadData()
     } catch (err) {
       console.error('Failed to add lesson:', err)
-      alert('Failed to add lesson')
+      setError('Failed to add lesson. Please try again.')
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
@@ -87,16 +88,22 @@ export default function Lessons() {
       loadData()
     } catch (err) {
       console.error('Failed to update payment status:', err)
+      setError('Failed to update payment status')
     }
   }
 
-  async function deleteLesson(id) {
-    if (!confirm('Are you sure you want to delete this lesson?')) return
+  async function handleDelete() {
+    if (!deleteConfirm) return
+    setIsSubmitting(true)
     try {
-      await lessonsApi.delete(id)
+      await lessonsApi.delete(deleteConfirm.id)
+      setDeleteConfirm(null)
       loadData()
     } catch (err) {
       console.error('Failed to delete lesson:', err)
+      setError('Failed to delete lesson')
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
@@ -106,7 +113,7 @@ export default function Lessons() {
     setFormData({
       ...formData,
       student_id: studentId,
-      hourly_rate: student?.hourly_rate || 3000,
+      hourly_rate: student?.hourly_rate || LESSON_DEFAULTS.HOURLY_RATE,
     })
   }
 
@@ -126,11 +133,18 @@ export default function Lessons() {
         </button>
       </div>
 
+      {error && (
+        <div className="bg-red-50 text-red-600 px-4 py-3 rounded-md">
+          {error}
+        </div>
+      )}
+
       {/* Filters */}
-      <div className="bg-white rounded-lg shadow p-4 flex items-center space-x-4">
+      <div className="bg-white rounded-lg shadow p-4 flex flex-wrap items-center gap-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Student</label>
+          <label htmlFor="student-filter" className="block text-sm font-medium text-gray-700 mb-1">Student</label>
           <select
+            id="student-filter"
             value={filter.student_id}
             onChange={(e) => setFilter({ ...filter, student_id: e.target.value })}
             className="border rounded-md px-3 py-2"
@@ -144,20 +158,20 @@ export default function Lessons() {
         <div className="flex items-center">
           <input
             type="checkbox"
-            id="unpaid"
+            id="unpaid-filter"
             checked={filter.unpaid_only}
             onChange={(e) => setFilter({ ...filter, unpaid_only: e.target.checked })}
             className="mr-2"
           />
-          <label htmlFor="unpaid" className="text-sm text-gray-700">Unpaid only</label>
+          <label htmlFor="unpaid-filter" className="text-sm text-gray-700">Unpaid only</label>
         </div>
       </div>
 
       {/* Lessons List - Mobile Cards */}
       <div className="md:hidden space-y-3">
         {lessons.length === 0 ? (
-          <div className="bg-white rounded-lg shadow p-6 text-center text-gray-500">
-            No lessons found
+          <div className="bg-white rounded-lg shadow">
+            <EmptyState message="No lessons found" />
           </div>
         ) : (
           lessons.map((lesson) => (
@@ -167,10 +181,10 @@ export default function Lessons() {
                   <Link to={`/students/${lesson.student_id}`} className="font-medium text-blue-600">
                     {lesson.student_name}
                   </Link>
-                  <div className="text-sm text-gray-500">{formatDate(lesson.date)}</div>
+                  <div className="text-sm text-gray-500">{formatDate(lesson.date, { weekday: 'short' })}</div>
                 </div>
                 <div className="text-right">
-                  <div className="font-medium">{formatCurrency(lesson.hourly_rate * lesson.duration_minutes / 60)}</div>
+                  <div className="font-medium">{formatCurrency(calculateLessonAmount(lesson.hourly_rate, lesson.duration_minutes))}</div>
                   <div className="text-sm text-gray-500">{lesson.duration_minutes} min</div>
                 </div>
               </div>
@@ -190,7 +204,7 @@ export default function Lessons() {
                 >
                   {lesson.is_paid ? 'Paid' : 'Unpaid'}
                 </button>
-                <button onClick={() => deleteLesson(lesson.id)} className="text-red-500 text-sm">
+                <button onClick={() => setDeleteConfirm(lesson)} className="text-red-500 text-sm">
                   Delete
                 </button>
               </div>
@@ -216,14 +230,14 @@ export default function Lessons() {
           <tbody className="divide-y divide-gray-200">
             {lessons.length === 0 ? (
               <tr>
-                <td colSpan="7" className="px-6 py-8 text-center text-gray-500">
-                  No lessons found
+                <td colSpan="7">
+                  <EmptyState message="No lessons found" />
                 </td>
               </tr>
             ) : (
               lessons.map((lesson) => (
                 <tr key={lesson.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 text-sm">{formatDate(lesson.date)}</td>
+                  <td className="px-6 py-4 text-sm">{formatDate(lesson.date, { weekday: 'short' })}</td>
                   <td className="px-6 py-4">
                     <Link to={`/students/${lesson.student_id}`} className="text-blue-600 hover:text-blue-800">
                       {lesson.student_name}
@@ -231,7 +245,7 @@ export default function Lessons() {
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-500">{lesson.duration_minutes} min</td>
                   <td className="px-6 py-4 text-sm font-medium">
-                    {formatCurrency(lesson.hourly_rate * lesson.duration_minutes / 60)}
+                    {formatCurrency(calculateLessonAmount(lesson.hourly_rate, lesson.duration_minutes))}
                   </td>
                   <td className="px-6 py-4">
                     <button
@@ -250,7 +264,7 @@ export default function Lessons() {
                   </td>
                   <td className="px-6 py-4 text-right">
                     <button
-                      onClick={() => deleteLesson(lesson.id)}
+                      onClick={() => setDeleteConfirm(lesson)}
                       className="text-red-600 hover:text-red-800"
                     >
                       Delete
@@ -264,88 +278,89 @@ export default function Lessons() {
       </div>
 
       {/* Add Lesson Modal */}
-      {showForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50" onClick={() => setShowForm(false)}>
-          <div className="bg-white rounded-lg shadow-xl max-w-lg w-full p-6" onClick={e => e.stopPropagation()}>
-            <h3 className="text-lg font-semibold mb-4">Add New Lesson</h3>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Student *</label>
-                <select
-                  value={formData.student_id}
-                  onChange={(e) => handleStudentChange(e.target.value)}
-                  className="w-full border rounded-md px-3 py-2"
-                  required
-                >
-                  <option value="">Select a student</option>
-                  {students.map((s) => (
-                    <option key={s.id} value={s.id}>{s.name}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Date *</label>
-                  <input
-                    type="date"
-                    value={formData.date}
-                    onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                    className="w-full border rounded-md px-3 py-2"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Duration (min)</label>
-                  <input
-                    type="number"
-                    value={formData.duration_minutes}
-                    onChange={(e) => setFormData({ ...formData, duration_minutes: parseInt(e.target.value) || 60 })}
-                    className="w-full border rounded-md px-3 py-2"
-                    min="15"
-                    step="15"
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Hourly Rate (EUR)</label>
-                <input
-                  type="number"
-                  value={formData.hourly_rate}
-                  onChange={(e) => setFormData({ ...formData, hourly_rate: parseInt(e.target.value) || 0 })}
-                  className="w-full border rounded-md px-3 py-2"
-                  min="0"
-                  step="100"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Lesson Notes</label>
-                <textarea
-                  value={formData.notes}
-                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                  className="w-full border rounded-md px-3 py-2"
-                  rows="4"
-                  placeholder="What did you cover in this lesson?"
-                />
-              </div>
-              <div className="flex justify-end space-x-3 pt-4">
-                <button
-                  type="button"
-                  onClick={() => setShowForm(false)}
-                  className="px-4 py-2 text-gray-600 hover:text-gray-800"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
-                >
-                  Add Lesson
-                </button>
-              </div>
-            </form>
+      <Modal
+        isOpen={showForm}
+        onClose={() => setShowForm(false)}
+        title="Add New Lesson"
+        maxWidth="lg"
+      >
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <FormField
+            label="Student"
+            type="select"
+            value={formData.student_id}
+            onChange={(e) => handleStudentChange(e.target.value)}
+            required
+          >
+            <option value="">Select a student</option>
+            {students.map((s) => (
+              <option key={s.id} value={s.id}>{s.name}</option>
+            ))}
+          </FormField>
+          <div className="grid grid-cols-2 gap-4">
+            <FormField
+              label="Date"
+              type="date"
+              value={formData.date}
+              onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+              required
+            />
+            <FormField
+              label="Duration (min)"
+              type="number"
+              value={formData.duration_minutes}
+              onChange={(e) => setFormData({ ...formData, duration_minutes: parseInt(e.target.value) || LESSON_DEFAULTS.DURATION_MINUTES })}
+              min={LESSON_DEFAULTS.MIN_DURATION}
+              step={LESSON_DEFAULTS.DURATION_STEP}
+            />
           </div>
-        </div>
-      )}
+          <FormField
+            label="Hourly Rate (EUR)"
+            type="number"
+            value={formData.hourly_rate}
+            onChange={(e) => setFormData({ ...formData, hourly_rate: parseInt(e.target.value) || 0 })}
+            min="0"
+            step={LESSON_DEFAULTS.RATE_STEP}
+          />
+          <FormField
+            label="Lesson Notes"
+            type="textarea"
+            value={formData.notes}
+            onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+            rows="4"
+            placeholder="What did you cover in this lesson?"
+          />
+          <div className="flex justify-end space-x-3 pt-4">
+            <button
+              type="button"
+              onClick={() => setShowForm(false)}
+              className="px-4 py-2 text-gray-600 hover:text-gray-800"
+              disabled={isSubmitting}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:opacity-50"
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? 'Adding...' : 'Add Lesson'}
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Delete Confirmation */}
+      <ConfirmDialog
+        isOpen={!!deleteConfirm}
+        onClose={() => setDeleteConfirm(null)}
+        onConfirm={handleDelete}
+        title="Delete Lesson"
+        message="Are you sure you want to delete this lesson?"
+        confirmText="Delete"
+        variant="danger"
+        isLoading={isSubmitting}
+      />
     </div>
   )
 }

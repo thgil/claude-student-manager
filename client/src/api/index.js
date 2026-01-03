@@ -179,12 +179,12 @@ function seedTestData() {
   // Sort lessons by date descending
   lessons.sort((a, b) => new Date(b.date) - new Date(a.date));
 
-  // Sample recurring schedules
+  // Sample recurring schedules with frequency support (days_of_week is an array for multi-day support)
   const schedules = [
-    { id: lessonId++, student_id: 1, is_recurring: true, day_of_week: 'tuesday', date: null, time: '16:00', duration_minutes: 60, notes: 'Weekly lesson - hiragana/katakana practice', created_at: new Date().toISOString() },
-    { id: lessonId++, student_id: 2, is_recurring: true, day_of_week: 'wednesday', date: null, time: '18:00', duration_minutes: 60, notes: 'JLPT N3 prep', created_at: new Date().toISOString() },
-    { id: lessonId++, student_id: 2, is_recurring: true, day_of_week: 'saturday', date: null, time: '10:00', duration_minutes: 90, notes: 'Weekend intensive - reading practice', created_at: new Date().toISOString() },
-    { id: lessonId++, student_id: 3, is_recurring: true, day_of_week: 'thursday', date: null, time: '17:30', duration_minutes: 60, notes: 'Kanji and reading focus', created_at: new Date().toISOString() },
+    { id: lessonId++, student_id: 1, is_recurring: true, days_of_week: ['tuesday', 'thursday'], date: null, time: '16:00', duration_minutes: 60, frequency: 'weekly', interval: 1, end_date: null, exceptions: [], notes: 'Twice weekly - hiragana/katakana practice', created_at: new Date().toISOString() },
+    { id: lessonId++, student_id: 2, is_recurring: true, days_of_week: ['wednesday'], date: null, time: '18:00', duration_minutes: 60, frequency: 'biweekly', interval: 2, end_date: null, exceptions: [], notes: 'JLPT N3 prep - every 2 weeks', created_at: new Date().toISOString() },
+    { id: lessonId++, student_id: 2, is_recurring: true, days_of_week: ['saturday'], date: null, time: '10:00', duration_minutes: 90, frequency: 'weekly', interval: 1, end_date: null, exceptions: [], notes: 'Weekend intensive - reading practice', created_at: new Date().toISOString() },
+    { id: lessonId++, student_id: 3, is_recurring: true, days_of_week: ['monday', 'wednesday', 'friday'], date: null, time: '17:30', duration_minutes: 60, frequency: 'weekly', interval: 1, end_date: null, exceptions: [], notes: 'Intensive schedule - 3x per week', created_at: new Date().toISOString() },
   ];
 
   return {
@@ -558,19 +558,79 @@ export const schedulesApi = {
     // Generate occurrences for each schedule
     data.schedules.forEach(schedule => {
       const student = data.students.find(s => s.id === schedule.student_id);
+      const exceptions = schedule.exceptions || [];
 
       if (schedule.is_recurring) {
-        // Generate all occurrences in the date range
+        // Check if schedule has ended
+        if (schedule.end_date && new Date(schedule.end_date) < today) {
+          return; // Skip this schedule entirely
+        }
+
+        const frequency = schedule.frequency || 'weekly';
+        const interval = schedule.interval || 1;
+
+        // Support both old day_of_week (string) and new days_of_week (array)
+        const scheduleDays = schedule.days_of_week || (schedule.day_of_week ? [schedule.day_of_week] : []);
+
+        // For bi-weekly/custom intervals, use Monday of the created week as anchor
+        const anchorDate = new Date(schedule.created_at || today);
+        // Go to Monday of that week
+        const anchorDay = anchorDate.getDay();
+        anchorDate.setDate(anchorDate.getDate() - (anchorDay === 0 ? 6 : anchorDay - 1));
+
+        // Iterate through each day in the date range
         let checkDate = new Date(today);
         while (checkDate <= endDate) {
-          if (dayNames[checkDate.getDay()] === schedule.day_of_week) {
-            upcoming.push({
-              ...schedule,
-              student_name: student?.name || 'Unknown',
-              date: checkDate.toISOString().split('T')[0],
-              is_recurring_instance: true
-            });
+          const currentDayName = dayNames[checkDate.getDay()];
+
+          // Check if this day is in the schedule's days
+          if (scheduleDays.includes(currentDayName)) {
+            // Calculate weeks since anchor (using Monday of each week)
+            const checkMonday = new Date(checkDate);
+            const checkDay = checkMonday.getDay();
+            checkMonday.setDate(checkMonday.getDate() - (checkDay === 0 ? 6 : checkDay - 1));
+
+            const weeksDiff = Math.round((checkMonday - anchorDate) / (7 * 24 * 60 * 60 * 1000));
+            const isValidOccurrence = weeksDiff >= 0 && weeksDiff % interval === 0;
+
+            // Check end date
+            const withinEndDate = !schedule.end_date || checkDate <= new Date(schedule.end_date);
+
+            if (isValidOccurrence && withinEndDate) {
+              const dateStr = checkDate.toISOString().split('T')[0];
+
+              // Check for exceptions on this date
+              const exception = exceptions.find(e => e.date === dateStr);
+
+              if (exception?.action === 'skip') {
+                // Skip this occurrence - don't add to upcoming
+              } else if (exception?.action === 'reschedule') {
+                // Add the rescheduled occurrence instead
+                const rescheduleDate = new Date(exception.reschedule_to);
+                if (rescheduleDate >= today && rescheduleDate <= endDate) {
+                  upcoming.push({
+                    ...schedule,
+                    student_name: student?.name || 'Unknown',
+                    date: exception.reschedule_to,
+                    time: exception.reschedule_time || schedule.time,
+                    original_date: dateStr,
+                    is_rescheduled: true,
+                    is_recurring_instance: true
+                  });
+                }
+              } else {
+                // Normal occurrence
+                upcoming.push({
+                  ...schedule,
+                  student_name: student?.name || 'Unknown',
+                  date: dateStr,
+                  is_recurring_instance: true
+                });
+              }
+            }
           }
+
+          // Move to next day
           checkDate.setDate(checkDate.getDate() + 1);
         }
       } else {
@@ -596,7 +656,7 @@ export const schedulesApi = {
     return upcoming;
   },
 
-  create: async ({ student_id, is_recurring, day_of_week, date, time, duration_minutes, notes }) => {
+  create: async ({ student_id, is_recurring, days_of_week, date, time, duration_minutes, frequency, interval, end_date, notes }) => {
     const data = getData();
     if (!data.schedules) data.schedules = [];
 
@@ -604,10 +664,14 @@ export const schedulesApi = {
       id: getNextId(),
       student_id: parseInt(student_id),
       is_recurring: !!is_recurring,
-      day_of_week: is_recurring ? day_of_week : null,
+      days_of_week: is_recurring ? (Array.isArray(days_of_week) ? days_of_week : [days_of_week]) : null,
       date: is_recurring ? null : date,
       time,
       duration_minutes: duration_minutes || 60,
+      frequency: is_recurring ? (frequency || 'weekly') : null,
+      interval: is_recurring ? (interval || 1) : null,
+      end_date: is_recurring ? (end_date || null) : null,
+      exceptions: [],
       notes: notes || null,
       created_at: new Date().toISOString()
     };
@@ -619,7 +683,7 @@ export const schedulesApi = {
     return { ...schedule, student_name: student?.name };
   },
 
-  update: async (id, { student_id, is_recurring, day_of_week, date, time, duration_minutes, notes }) => {
+  update: async (id, { student_id, is_recurring, days_of_week, date, time, duration_minutes, frequency, interval, end_date, notes }) => {
     const data = getData();
     if (!data.schedules) data.schedules = [];
 
@@ -630,16 +694,56 @@ export const schedulesApi = {
       ...data.schedules[index],
       student_id: parseInt(student_id),
       is_recurring: !!is_recurring,
-      day_of_week: is_recurring ? day_of_week : null,
+      days_of_week: is_recurring ? (Array.isArray(days_of_week) ? days_of_week : [days_of_week]) : null,
       date: is_recurring ? null : date,
       time,
       duration_minutes: duration_minutes || 60,
+      frequency: is_recurring ? (frequency || 'weekly') : null,
+      interval: is_recurring ? (interval || 1) : null,
+      end_date: is_recurring ? (end_date || null) : null,
       notes: notes || null
     };
 
     saveData(data);
     const student = data.students.find(s => s.id === parseInt(student_id));
     return { ...data.schedules[index], student_name: student?.name };
+  },
+
+  // Add an exception (skip or reschedule) to a recurring schedule
+  addException: async (scheduleId, { date, action, reschedule_to, reschedule_time }) => {
+    const data = getData();
+    const schedule = data.schedules?.find(s => s.id === parseInt(scheduleId));
+    if (!schedule) throw new Error('Schedule not found');
+
+    if (!schedule.exceptions) schedule.exceptions = [];
+
+    // Remove any existing exception for this date
+    schedule.exceptions = schedule.exceptions.filter(e => e.date !== date);
+
+    // Add the new exception
+    schedule.exceptions.push({
+      date,
+      action, // 'skip' or 'reschedule'
+      reschedule_to: action === 'reschedule' ? reschedule_to : null,
+      reschedule_time: action === 'reschedule' ? reschedule_time : null
+    });
+
+    saveData(data);
+    return schedule;
+  },
+
+  // Remove an exception from a recurring schedule
+  removeException: async (scheduleId, date) => {
+    const data = getData();
+    const schedule = data.schedules?.find(s => s.id === parseInt(scheduleId));
+    if (!schedule) throw new Error('Schedule not found');
+
+    if (schedule.exceptions) {
+      schedule.exceptions = schedule.exceptions.filter(e => e.date !== date);
+      saveData(data);
+    }
+
+    return schedule;
   },
 
   delete: async (id) => {

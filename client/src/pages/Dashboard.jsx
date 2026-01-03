@@ -1,40 +1,10 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { dashboardApi, schedulesApi } from '../api'
-
-function formatCurrency(amount) {
-  return new Intl.NumberFormat('en-IE', { style: 'currency', currency: 'EUR' }).format(amount)
-}
-
-function formatDate(dateStr) {
-  return new Date(dateStr).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric'
-  })
-}
-
-function formatTime(time) {
-  if (!time) return ''
-  const [hours, minutes] = time.split(':')
-  const h = parseInt(hours)
-  const ampm = h >= 12 ? 'PM' : 'AM'
-  const hour12 = h % 12 || 12
-  return `${hour12}:${minutes} ${ampm}`
-}
-
-function formatUpcomingDate(dateStr) {
-  const date = new Date(dateStr + 'T00:00:00')
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  const tomorrow = new Date(today)
-  tomorrow.setDate(tomorrow.getDate() + 1)
-
-  if (date.getTime() === today.getTime()) return 'Today'
-  if (date.getTime() === tomorrow.getTime()) return 'Tomorrow'
-
-  return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
-}
+import { formatCurrency, formatDate, formatTime, formatUpcomingDate, calculateLessonAmount } from '../utils/formatters'
+import { SCHEDULE } from '../constants'
+import EmptyState from '../components/EmptyState'
+import ConfirmDialog from '../components/ConfirmDialog'
 
 export default function Dashboard() {
   const [stats, setStats] = useState(null)
@@ -42,31 +12,55 @@ export default function Dashboard() {
   const [unpaidByStudent, setUnpaidByStudent] = useState([])
   const [upcomingLessons, setUpcomingLessons] = useState([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+  const [showResetConfirm, setShowResetConfirm] = useState(false)
 
   useEffect(() => {
-    async function load() {
-      try {
-        const [statsData, lessonsData, unpaidData, upcomingData] = await Promise.all([
-          dashboardApi.getStats(),
-          dashboardApi.getRecentLessons(),
-          dashboardApi.getUnpaidByStudent(),
-          schedulesApi.getUpcoming(7),
-        ])
-        setStats(statsData)
-        setRecentLessons(lessonsData)
-        setUnpaidByStudent(unpaidData)
-        setUpcomingLessons(upcomingData)
-      } catch (err) {
-        console.error('Failed to load dashboard:', err)
-      } finally {
-        setLoading(false)
-      }
-    }
     load()
   }, [])
 
+  async function load() {
+    setError(null)
+    try {
+      const [statsData, lessonsData, unpaidData, upcomingData] = await Promise.all([
+        dashboardApi.getStats(),
+        dashboardApi.getRecentLessons(),
+        dashboardApi.getUnpaidByStudent(),
+        schedulesApi.getUpcoming(SCHEDULE.DASHBOARD_PREVIEW_DAYS),
+      ])
+      setStats(statsData)
+      setRecentLessons(lessonsData)
+      setUnpaidByStudent(unpaidData)
+      setUpcomingLessons(upcomingData)
+    } catch (err) {
+      console.error('Failed to load dashboard:', err)
+      setError('Failed to load dashboard data. Please try refreshing the page.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  function handleReset() {
+    localStorage.removeItem('tutoring-data')
+    window.location.reload()
+  }
+
   if (loading) {
     return <div className="text-center py-8">Loading...</div>
+  }
+
+  if (error) {
+    return (
+      <div className="text-center py-8">
+        <p className="text-red-600 mb-4">{error}</p>
+        <button
+          onClick={() => { setLoading(true); load() }}
+          className="text-blue-600 hover:text-blue-800"
+        >
+          Try again
+        </button>
+      </div>
+    )
   }
 
   return (
@@ -104,7 +98,7 @@ export default function Dashboard() {
             </Link>
           </div>
           <div className="divide-y">
-            {upcomingLessons.slice(0, 5).map((lesson, idx) => (
+            {upcomingLessons.slice(0, SCHEDULE.DASHBOARD_PREVIEW_COUNT).map((lesson, idx) => (
               <div key={`${lesson.id}-${lesson.date}-${idx}`} className="px-4 md:px-6 py-3 flex items-center justify-between">
                 <div>
                   <Link to={`/students/${lesson.student_id}`} className="font-medium text-blue-600 hover:text-blue-800">
@@ -131,7 +125,7 @@ export default function Dashboard() {
           </div>
           <div className="divide-y">
             {recentLessons.length === 0 ? (
-              <div className="px-6 py-4 text-gray-500">No lessons yet</div>
+              <EmptyState message="No lessons yet" />
             ) : (
               recentLessons.slice(0, 5).map((lesson) => (
                 <div key={lesson.id} className="px-6 py-4 flex items-center justify-between">
@@ -142,7 +136,7 @@ export default function Dashboard() {
                     <div className="text-sm text-gray-500">{formatDate(lesson.date)}</div>
                   </div>
                   <div className="text-right">
-                    <div className="font-medium">{formatCurrency(lesson.hourly_rate * lesson.duration_minutes / 60)}</div>
+                    <div className="font-medium">{formatCurrency(calculateLessonAmount(lesson.hourly_rate, lesson.duration_minutes))}</div>
                     <div className={`text-sm ${lesson.is_paid ? 'text-green-600' : 'text-red-600'}`}>
                       {lesson.is_paid ? 'Paid' : 'Unpaid'}
                     </div>
@@ -167,7 +161,7 @@ export default function Dashboard() {
           </div>
           <div className="divide-y">
             {unpaidByStudent.length === 0 ? (
-              <div className="px-6 py-4 text-gray-500">All caught up!</div>
+              <EmptyState message="All caught up!" />
             ) : (
               unpaidByStudent.map((student) => (
                 <div key={student.id} className="px-6 py-4 flex items-center justify-between">
@@ -197,17 +191,22 @@ export default function Dashboard() {
       {/* Reset Button */}
       <div className="text-center pt-4">
         <button
-          onClick={() => {
-            if (confirm('Reset all data? This will clear all students, lessons, and schedules and reload with sample data.')) {
-              localStorage.removeItem('tutoring-data');
-              window.location.reload();
-            }
-          }}
+          onClick={() => setShowResetConfirm(true)}
           className="text-xs text-gray-400 hover:text-red-500"
         >
           Reset to sample data
         </button>
       </div>
+
+      <ConfirmDialog
+        isOpen={showResetConfirm}
+        onClose={() => setShowResetConfirm(false)}
+        onConfirm={handleReset}
+        title="Reset Data"
+        message="Reset all data? This will clear all students, lessons, and schedules and reload with sample data."
+        confirmText="Reset"
+        variant="danger"
+      />
     </div>
   )
 }
